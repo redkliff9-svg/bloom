@@ -9,9 +9,11 @@ import { useI18n } from '../../src/i18n';
 import { cyclePhaseForDate, getActiveMemberId, getEpisodes, getFamilyMembers, getSettings, patchSettings, setActiveMemberId } from '../../src/storage';
 import { Episode, FamilyMember, UserSettings } from '../../src/types';
 import WeekStrip from '../../src/components/WeekStrip';
+import NudgeCard from '../../src/components/NudgeCard';
+import { useNudge } from '../../src/hooks/useNudge';
 
 export default function TodayScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
   const today = new Date().toISOString().split('T')[0];
@@ -20,6 +22,7 @@ export default function TodayScreen() {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [activeMemberId, setActiveMemberIdState] = useState<string>('self');
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const { nudge, dismiss } = useNudge(lang);
 
   useFocusEffect(useCallback(() => {
     (async () => {
@@ -124,6 +127,9 @@ export default function TodayScreen() {
 
         {/* Week strip */}
         <WeekStrip episodes={episodes} today={today} />
+
+        {/* AI nudge */}
+        {nudge && <NudgeCard nudge={nudge} onDismiss={dismiss} />}
 
         {/* Status */}
         <View style={s.statusSection}>

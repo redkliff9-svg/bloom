@@ -247,6 +247,22 @@ const strings = {
   notifs_sub:       { uz: 'Kuzatishni eslatib turamiz', ru: 'Напомним о записи', en: 'We\'ll remind you to track' },
   challenge_intro:  { uz: '3 kunlik vazifa boshlandi!', ru: 'Начался 3-дневный челлендж!', en: '3-Day Challenge starts now!' },
   challenge_intro_sub: { uz: '3 kun ketma-ket kuzatib, birinchi tushunchangizni oling', ru: 'Отслеживайте 3 дня подряд и получите первый инсайт', en: 'Track 3 days in a row to earn your first insight' },
+
+  // ── AI features ──────────────────────────────────────────────────────────────
+  ai_nudge_title:   { uz: 'Bugungi maslahat',   ru: 'Совет дня',           en: 'Today\'s nudge' },
+  ai_nudge_dismiss: { uz: 'Tushunarli',         ru: 'Понятно',             en: 'Got it' },
+  ai_generating:    { uz: 'Tahlil qilinmoqda…', ru: 'Анализируем…',        en: 'Generating…' },
+  ai_reports:       { uz: 'AI hisobotlar',      ru: 'AI-отчёты',           en: 'AI Reports' },
+  ai_weekly:        { uz: 'Haftalik',           ru: 'Недельный',           en: 'Weekly' },
+  ai_monthly:       { uz: 'Oylik',             ru: 'Месячный',            en: 'Monthly' },
+  ai_generate_now:  { uz: 'Hozir yaratish',    ru: 'Создать сейчас',      en: 'Generate now' },
+  ai_no_report:     { uz: 'Hisobot yo\'q',     ru: 'Отчёт не готов',      en: 'No report yet' },
+  ai_no_report_hint:{ uz: 'Kamida 3 kun yozib «Hozir yaratish»ni bosing', ru: 'Запишите хотя бы 3 дня и нажмите «Создать сейчас»', en: 'Log at least 3 days then tap Generate now' },
+  ai_error:         { uz: 'Xatolik yuz berdi', ru: 'Ошибка',              en: 'Something went wrong' },
+  ai_limit_reached: { uz: 'Bugun allaqachon yaratildi', ru: 'Уже создано сегодня', en: 'Already generated today' },
+  ai_improving:     { uz: 'Yaxshilanmoqda',    ru: 'Улучшается',          en: 'Improving' },
+  ai_stable:        { uz: 'Barqaror',          ru: 'Стабильно',           en: 'Stable' },
+  ai_worsening:     { uz: 'Yomonlashmoqda',   ru: 'Ухудшается',          en: 'Worsening' },
 } as const;
 
 type StringKey = keyof typeof strings;

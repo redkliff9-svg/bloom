@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -7,12 +7,15 @@ import { useColors } from '../../src/theme';
 import { useI18n } from '../../src/i18n';
 import { getActiveMemberId, getEpisodes, longestConsecutiveStreak } from '../../src/storage';
 import { Episode } from '../../src/types';
+import AISummarySection from '../../src/components/AISummarySection';
+import { useSummaries } from '../../src/hooks/useSummaries';
 
 export default function InsightsScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const { weekly, monthly, loading: sumLoading, generating, genError, load: loadSummaries, generate } = useSummaries();
 
   useFocusEffect(useCallback(() => {
     (async () => {
@@ -20,6 +23,8 @@ export default function InsightsScreen() {
       setEpisodes(all.filter(e => (e.memberId ?? 'self') === activeId));
     })();
   }, []));
+
+  useEffect(() => { loadSummaries(); }, []);
 
   if (episodes.length === 0) {
     return (
@@ -146,6 +151,16 @@ export default function InsightsScreen() {
             </View>
           </View>
         )}
+
+        <AISummarySection
+          weekly={weekly}
+          monthly={monthly}
+          loading={sumLoading}
+          generating={generating}
+          genError={genError}
+          onGenerate={(period) => generate(period, lang)}
+          lang={lang}
+        />
       </ScrollView>
     </SafeAreaView>
   );
