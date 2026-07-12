@@ -48,4 +48,5 @@ export interface UserSettings {
   reminderTime: string;
   periodActive: boolean;
   theme: Theme;
+  discreetNotifications: boolean;
 }

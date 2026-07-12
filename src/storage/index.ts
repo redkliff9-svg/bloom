@@ -55,6 +55,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   reminderTime: '21:00',
   periodActive: false,
   theme: 'system',
+  discreetNotifications: true,
 };
 
 export async function getSettings(): Promise<UserSettings> {

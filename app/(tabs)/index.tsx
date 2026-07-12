@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +10,10 @@ import { cyclePhaseForDate, getActiveMemberId, getEpisodes, getFamilyMembers, ge
 import { Episode, FamilyMember, UserSettings } from '../../src/types';
 import WeekStrip from '../../src/components/WeekStrip';
 import NudgeCard from '../../src/components/NudgeCard';
+import CoachingCard from '../../src/components/CoachingCard';
 import { useNudge } from '../../src/hooks/useNudge';
+import { getCoachingNudge, CoachingNudge } from '../../src/coaching/nudgeEngine';
+import { scheduleSmartNotifications } from '../../src/coaching/notificationScheduler';
 
 export default function TodayScreen() {
   const { t, lang } = useI18n();
@@ -23,6 +26,9 @@ export default function TodayScreen() {
   const [activeMemberId, setActiveMemberIdState] = useState<string>('self');
   const [showSwitcher, setShowSwitcher] = useState(false);
   const { nudge, dismiss } = useNudge(lang);
+  const [coaching, setCoaching] = useState<CoachingNudge | null>(null);
+  const [coachingDismissed, setCoachingDismissed] = useState(false);
+  const coachingLoadedRef = useRef(false);
 
   useFocusEffect(useCallback(() => {
     (async () => {
@@ -33,6 +39,20 @@ export default function TodayScreen() {
       setSettings(s);
       setFamilyMembers(members);
       setActiveMemberIdState(activeId);
+
+      // Load coaching nudge once per session (not on every focus)
+      if (!coachingLoadedRef.current) {
+        coachingLoadedRef.current = true;
+        const c = await getCoachingNudge(
+          eps.filter(e => (e.memberId ?? 'self') === (await getActiveMemberId())),
+          s,
+          s.language,
+        );
+        setCoaching(c);
+      }
+
+      // Reschedule smart notifications whenever data is fresh
+      scheduleSmartNotifications(s, eps);
     })();
   }, []));
 
@@ -125,10 +145,15 @@ export default function TodayScreen() {
           </TouchableWithoutFeedback>
         </Modal>
 
+        {/* Coaching card — shown once per session, before week strip */}
+        {coaching && !coachingDismissed && (
+          <CoachingCard nudge={coaching} onDismiss={() => setCoachingDismissed(true)} />
+        )}
+
         {/* Week strip */}
         <WeekStrip episodes={episodes} today={today} />
 
-        {/* AI nudge */}
+        {/* AI nudge (once per day, from Supabase) */}
         {nudge && <NudgeCard nudge={nudge} onDismiss={dismiss} />}
 
         {/* Status */}

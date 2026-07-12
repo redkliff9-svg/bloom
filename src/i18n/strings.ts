@@ -248,6 +248,12 @@ const strings = {
   challenge_intro:  { uz: '3 kunlik vazifa boshlandi!', ru: 'Начался 3-дневный челлендж!', en: '3-Day Challenge starts now!' },
   challenge_intro_sub: { uz: '3 kun ketma-ket kuzatib, birinchi tushunchangizni oling', ru: 'Отслеживайте 3 дня подряд и получите первый инсайт', en: 'Track 3 days in a row to earn your first insight' },
 
+  // ── Coaching ──────────────────────────────────────────────────────────────────
+  coaching_dismiss:    { uz: 'Tushunarli',          ru: 'Понятно',             en: 'Got it' },
+  discreet_notifs:     { uz: 'Maxfiy bildirishnomalar', ru: 'Дискретные уведомления', en: 'Discreet notifications' },
+  discreet_notifs_sub: { uz: 'Qulf ekranida umumiy matn ko\'rsatiladi', ru: 'На экране блокировки — общий текст', en: 'Shows neutral text on lock screen' },
+  notifs_expo_go:      { uz: 'Bildirishnomalar Expo Go\'da ishlamaydi. Ular dev yoki production buildda ishlaydi.', ru: 'Уведомления не работают в Expo Go — только в dev- или production-сборке.', en: 'Push notifications need a dev or production build — they don\'t fire in Expo Go.' },
+
   // ── AI features ──────────────────────────────────────────────────────────────
   ai_nudge_title:   { uz: 'Bugungi maslahat',   ru: 'Совет дня',           en: 'Today\'s nudge' },
   ai_nudge_dismiss: { uz: 'Tushunarli',         ru: 'Понятно',             en: 'Got it' },

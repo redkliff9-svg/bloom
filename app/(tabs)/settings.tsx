@@ -4,17 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/contexts/AuthContext';
-import * as Notifications from 'expo-notifications';
-import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import Constants from 'expo-constants';
+import { scheduleSmartNotifications, requestNotificationPermission, IS_EXPO_GO } from '../../src/coaching/notificationScheduler';
 import { SERIF } from '../../src/constants';
 import { useColors } from '../../src/theme';
 import { useI18n } from '../../src/i18n';
 import { getEpisodes, getFamilyMembers, getSettings, patchSettings } from '../../src/storage';
 import { FamilyMember, Lang, Theme, UserSettings } from '../../src/types';
-
-const NOTIF_SUPPORTED =
-  Platform.OS !== 'web' && Constants.executionEnvironment !== 'storeClient';
 
 function parseTime(t: string): { h: number; m: number } {
   const [h, m] = (t ?? '21:00').split(':').map(Number);
@@ -22,30 +18,6 @@ function parseTime(t: string): { h: number; m: number } {
 }
 function fmtTime(h: number, m: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-async function scheduleReminder(time: string, lang: string) {
-  if (!NOTIF_SUPPORTED) return;
-  try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    const [h, m] = time.split(':').map(Number);
-    const bodies: Record<string, string> = {
-      uz: "Bugungi og'riqni yozdingizmi? 🌸",
-      ru: 'Zapisali li vy bol segodnya? 🌸',
-      en: "Have you logged today's pain? 🌸",
-    };
-    await Notifications.scheduleNotificationAsync({
-      content: { title: 'Blooms 🌸', body: bodies[lang] ?? bodies.uz },
-      trigger: {
-        type: SchedulableTriggerInputTypes.CALENDAR,
-        hour: h,
-        minute: m,
-        repeats: true,
-      },
-    });
-  } catch {
-    // ignore
-  }
 }
 
 function buildCsv(episodes: any[]): string {
@@ -92,26 +64,37 @@ export default function SettingsScreen() {
 
   async function toggleNotifications(val: boolean) {
     if (val) {
-      if (!NOTIF_SUPPORTED) {
-        await updateSetting({ notificationsEnabled: true });
-        return;
-      }
-      const { status } = await Notifications.requestPermissionsAsync();
-      const enabled = status === 'granted';
-      await updateSetting({ notificationsEnabled: enabled });
-      if (enabled && settings) {
-        await scheduleReminder(settings.reminderTime ?? '21:00', settings.language);
+      const granted = await requestNotificationPermission();
+      const next = await patchSettings({ notificationsEnabled: granted });
+      setSettings(next);
+      if (granted) {
+        const eps = await getEpisodes();
+        await scheduleSmartNotifications(next, eps);
       }
     } else {
-      if (NOTIF_SUPPORTED) await Notifications.cancelAllScheduledNotificationsAsync();
-      await updateSetting({ notificationsEnabled: false });
+      const { default: Notifications } = await import('expo-notifications');
+      await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+      const next = await patchSettings({ notificationsEnabled: false });
+      setSettings(next);
     }
   }
 
   async function changeReminderTime(time: string) {
     const next = await patchSettings({ reminderTime: time });
     setSettings(next);
-    if (next.notificationsEnabled) await scheduleReminder(time, next.language);
+    if (next.notificationsEnabled) {
+      const eps = await getEpisodes();
+      await scheduleSmartNotifications(next, eps);
+    }
+  }
+
+  async function toggleDiscreet(val: boolean) {
+    const next = await patchSettings({ discreetNotifications: val });
+    setSettings(next);
+    if (next.notificationsEnabled) {
+      const eps = await getEpisodes();
+      await scheduleSmartNotifications(next, eps);
+    }
   }
 
   function adjustTime(unit: 'h' | 'm', delta: number) {
@@ -190,34 +173,59 @@ export default function SettingsScreen() {
               thumbColor={c.WHITE}
             />
           </View>
-          <View style={s.reminderRow}>
-            <Text style={s.stepLabel}>{t('reminder_time')}</Text>
-            <View style={s.timePicker}>
-              <View style={s.timeUnit}>
-                <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('h', 1)}>
-                  <Text style={s.stepBtnTxt}>+</Text>
-                </TouchableOpacity>
-                <Text style={s.timeVal}>
-                  {String(parseTime(settings.reminderTime ?? '21:00').h).padStart(2, '0')}
-                </Text>
-                <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('h', -1)}>
-                  <Text style={s.stepBtnTxt}>−</Text>
-                </TouchableOpacity>
+
+          {settings.notificationsEnabled && (
+            <>
+              <View style={s.reminderRow}>
+                <Text style={s.stepLabel}>{t('reminder_time')}</Text>
+                <View style={s.timePicker}>
+                  <View style={s.timeUnit}>
+                    <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('h', 1)}>
+                      <Text style={s.stepBtnTxt}>+</Text>
+                    </TouchableOpacity>
+                    <Text style={s.timeVal}>
+                      {String(parseTime(settings.reminderTime ?? '21:00').h).padStart(2, '0')}
+                    </Text>
+                    <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('h', -1)}>
+                      <Text style={s.stepBtnTxt}>−</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={s.timeSep}>:</Text>
+                  <View style={s.timeUnit}>
+                    <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('m', 1)}>
+                      <Text style={s.stepBtnTxt}>+</Text>
+                    </TouchableOpacity>
+                    <Text style={s.timeVal}>
+                      {String(parseTime(settings.reminderTime ?? '21:00').m).padStart(2, '0')}
+                    </Text>
+                    <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('m', -1)}>
+                      <Text style={s.stepBtnTxt}>−</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-              <Text style={s.timeSep}>:</Text>
-              <View style={s.timeUnit}>
-                <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('m', 1)}>
-                  <Text style={s.stepBtnTxt}>+</Text>
-                </TouchableOpacity>
-                <Text style={s.timeVal}>
-                  {String(parseTime(settings.reminderTime ?? '21:00').m).padStart(2, '0')}
-                </Text>
-                <TouchableOpacity style={s.stepBtn} onPress={() => adjustTime('m', -1)}>
-                  <Text style={s.stepBtnTxt}>−</Text>
-                </TouchableOpacity>
+
+              <View style={[s.switchRow, { borderTopWidth: 1, borderTopColor: c.BORDER }]}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={s.switchLabel}>{t('discreet_notifs')}</Text>
+                  <Text style={s.switchSub}>{t('discreet_notifs_sub')}</Text>
+                </View>
+                <Switch
+                  value={settings.discreetNotifications !== false}
+                  onValueChange={toggleDiscreet}
+                  trackColor={{ false: c.BORDER, true: c.PINK }}
+                  thumbColor={c.WHITE}
+                />
               </View>
+            </>
+          )}
+
+          {IS_EXPO_GO && (
+            <View style={s.expoGoNote}>
+              <Ionicons name="information-circle-outline" size={15} color={c.MUTED} style={{ marginTop: 1 }} />
+              <Text style={s.expoGoTxt}>{t('notifs_expo_go')}</Text>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Cycle settings */}
@@ -341,6 +349,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     memberDot:    { width: 14, height: 14, borderRadius: 7 },
     memberName:   { fontSize: 15, fontWeight: '600', color: c.DARK, flex: 1 },
     memberRelation:{ fontSize: 12, color: c.MUTED },
+    switchSub:    { fontSize: 11, color: c.MUTED, marginTop: 2 },
+    expoGoNote:   { flexDirection: 'row', gap: 8, padding: 14, borderTopWidth: 1, borderTopColor: c.BORDER },
+    expoGoTxt:    { flex: 1, fontSize: 12, color: c.MUTED, lineHeight: 17 },
     infoCard:     { alignItems: 'center', marginTop: 32, paddingVertical: 24 },
     infoEmoji:    { fontSize: 40, marginBottom: 8 },
     infoName:     { fontSize: 20, fontWeight: '800', color: c.DARK },
