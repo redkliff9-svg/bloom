@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const SUPABASE_URL = 'https://bawtponzsqszlawrijfx.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_UiXMYoybo-rE2VJHmKs6pQ_hqBz99_L';
+const SUPABASE_URL      = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 const SecureStoreAdapter = {
   getItem:    (key: string) => SecureStore.getItemAsync(key),

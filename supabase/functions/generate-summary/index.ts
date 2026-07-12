@@ -19,22 +19,41 @@ const LANG_NAME: Record<string, string> = { uz: 'Uzbek', ru: 'Russian', en: 'Eng
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOk();
 
+  // Fail fast if any required env var is missing
+  const supabaseUrl  = Deno.env.get('SUPABASE_URL');
+  const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const anonKey      = Deno.env.get('SUPABASE_ANON_KEY');
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!supabaseUrl || !serviceKey || !anonKey || !anthropicKey) {
+    return json({ error: 'misconfigured' }, 500);
+  }
+
   try {
-    const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const anonKey      = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')!;
 
     const body      = await req.json().catch(() => ({}));
-    const period    = (body.period ?? 'weekly') as 'weekly' | 'monthly';
-    const lang      = (body.language ?? 'en') as string;
     const scheduled = body.scheduled === true;
     const force     = body.force === true;
+
+    // Validate period and language inputs
+    const VALID_PERIODS = new Set(['weekly', 'monthly']);
+    const VALID_LANGS   = new Set(['uz', 'ru', 'en']);
+    const rawPeriod = body.period ?? 'weekly';
+    const rawLang   = body.language ?? 'en';
+    if (!VALID_PERIODS.has(rawPeriod)) return json({ error: 'invalid_period' }, 400);
+    if (!VALID_LANGS.has(rawLang))     return json({ error: 'invalid_language' }, 400);
+    const period = rawPeriod as 'weekly' | 'monthly';
+    const lang   = rawLang as string;
 
     const admin = createClient(supabaseUrl, serviceKey);
 
     // ── Scheduled cron path: generate for all active users ────────────────────
     if (scheduled) {
+      // Require a shared secret so this path can't be triggered anonymously
+      const cronSecret = Deno.env.get('CRON_SECRET');
+      const provided   = req.headers.get('x-cron-secret');
+      if (!cronSecret || provided !== cronSecret) {
+        return json({ error: 'unauthorized' }, 401);
+      }
       const { data: users } = await admin
         .from('user_settings')
         .select('user_id, language');

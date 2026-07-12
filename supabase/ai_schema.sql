@@ -54,7 +54,11 @@ create index if not exists ai_summaries_user_period on public.ai_summaries (user
 --   1. Enable pg_cron
 --   2. Enable pg_net
 --
--- Then replace YOUR_PROJECT_REF and YOUR_SERVICE_ROLE_KEY below and run.
+-- Prerequisites:
+--   1. Enable pg_cron and pg_net extensions
+--   2. Set CRON_SECRET in Supabase Dashboard → Edge Functions → Secrets
+--      (any strong random string, e.g. openssl rand -hex 32)
+--   3. Replace YOUR_PROJECT_REF, YOUR_SERVICE_ROLE_KEY, and YOUR_CRON_SECRET below
 -- ─────────────────────────────────────────────────────────────────────────────
 
 /*
@@ -65,7 +69,7 @@ select cron.schedule(
   $cron$
   select net.http_post(
     url     := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/generate-summary',
-    headers := '{"Authorization":"Bearer YOUR_SERVICE_ROLE_KEY","Content-Type":"application/json"}'::jsonb,
+    headers := '{"Authorization":"Bearer YOUR_SERVICE_ROLE_KEY","x-cron-secret":"YOUR_CRON_SECRET","Content-Type":"application/json"}'::jsonb,
     body    := '{"period":"weekly","scheduled":true}'::jsonb
   );
   $cron$
@@ -78,7 +82,7 @@ select cron.schedule(
   $cron$
   select net.http_post(
     url     := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/generate-summary',
-    headers := '{"Authorization":"Bearer YOUR_SERVICE_ROLE_KEY","Content-Type":"application/json"}'::jsonb,
+    headers := '{"Authorization":"Bearer YOUR_SERVICE_ROLE_KEY","x-cron-secret":"YOUR_CRON_SECRET","Content-Type":"application/json"}'::jsonb,
     body    := '{"period":"monthly","scheduled":true}'::jsonb
   );
   $cron$

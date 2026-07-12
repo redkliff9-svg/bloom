@@ -14,12 +14,16 @@ const LANG_NAME: Record<string, string> = { uz: 'Uzbek', ru: 'Russian', en: 'Eng
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsOk();
 
-  try {
-    const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const anonKey      = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')!;
+  // Fail fast if any required env var is missing
+  const supabaseUrl  = Deno.env.get('SUPABASE_URL');
+  const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const anonKey      = Deno.env.get('SUPABASE_ANON_KEY');
+  const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
+  if (!supabaseUrl || !serviceKey || !anonKey || !anthropicKey) {
+    return json({ error: 'misconfigured' }, 500);
+  }
 
+  try {
     // ── Auth ──────────────────────────────────────────────────────────────────
     const auth = req.headers.get('Authorization');
     if (!auth) return json({ error: 'unauthorized' }, 401);
@@ -32,6 +36,13 @@ Deno.serve(async (req) => {
 
     const userId = user.id;
     const admin  = createClient(supabaseUrl, serviceKey);
+
+    // ── Validate inputs ───────────────────────────────────────────────────────
+    const body = await req.json().catch(() => ({}));
+    const VALID_LANGS = new Set(['uz', 'ru', 'en']);
+    const rawLang = body.language ?? 'en';
+    if (!VALID_LANGS.has(rawLang)) return json({ error: 'invalid_language' }, 400);
+    const lang = rawLang as string;
 
     // ── Rate limit: 1 nudge per calendar day ──────────────────────────────────
     const dayStart = new Date();
@@ -47,10 +58,6 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing) return json({ nudge: existing });
-
-    // ── Fetch user data ───────────────────────────────────────────────────────
-    const body = await req.json().catch(() => ({}));
-    const lang = (body.language ?? 'en') as string;
     const ago30 = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
     const [{ data: eps }, { data: challenges }, { data: settings }] = await Promise.all([
