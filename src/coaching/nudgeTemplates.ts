@@ -126,6 +126,41 @@ export const NUDGE_TEMPLATES: NudgeTemplate[] = [
   // ── Pattern insights ─────────────────────────────────────────────────────────
 
   {
+    id: 'pattern_headache_pre',
+    category: 'pattern',
+    text: {
+      uz: () => "Ma'lumotlaringiz ko'rsatadiki, davr boshlanishidan 2–3 kun oldin bosh og'rig'i paydo bo'ladi. Dori va yetarli uyqu bilan tayyor bo'ling.",
+      ru: () => "Данные показывают: за 2–3 дня до цикла появляется головная боль. Подготовьтесь — лекарства и достаточный сон помогут.",
+      en: () => "Your logs show headaches tend to appear 2–3 days before your period. Prepare now — have pain relief ready and prioritise sleep this week.",
+    },
+    action: { uz: "Dori tayyorlab qo'yish", ru: "Подготовить таблетки", en: "Prepare ahead" },
+  },
+
+  {
+    id: 'pattern_heat_works',
+    category: 'pattern',
+    text: {
+      uz: () => "Siz avval issiq yostiqchadan foydalangansiz — bu og'riqni kamaytirgan. Davrning boshida yana sinab ko'ring.",
+      ru: () => "Раньше вам помогала грелка. Если сейчас есть боль — попробуйте снова, это работает.",
+      en: () => "You've used heat therapy before and it helped. Try it again when cramps start — it's one of the most effective tools you have.",
+    },
+    action: { uz: "Issiqlik ishlatish", ru: "Использовать тепло", en: "Try heat therapy" },
+    actionRoute: '/log',
+  },
+
+  {
+    id: 'pattern_mood_dip',
+    category: 'pattern',
+    text: {
+      uz: () => "Ma'lumotlaringiz ko'rsatadiki, kelgusi 1–2 kunda kayfiyat pasayishi bo'lishi mumkin. Bu normal — gormonal o'zgarishlar boshlanmoqda.",
+      ru: () => "По вашим данным, ближайшие 1–2 дня могут принести перепады настроения. Это нормально — гормоны перестраиваются.",
+      en: () => "Your data suggests mood dips are likely in the next day or two. Completely normal — your body is shifting hormones. Extra rest and self-care help.",
+    },
+    action: { uz: "Kayfiyatni kuzatish", ru: "Отследить настроение", en: "Log mood" },
+    actionRoute: '/log',
+  },
+
+  {
     id: 'pattern_peak_day',
     category: 'pattern',
     text: {

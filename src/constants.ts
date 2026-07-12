@@ -26,7 +26,7 @@ export function painColor(level: number): string {
   return PAIN_COLORS[Math.max(0, Math.min(9, level - 1))];
 }
 
-export function painLabelKey(level: number): string {
+export function painLabelKey(level: number): 'mild' | 'moderate' | 'severe' | 'very_severe' {
   if (level <= 3) return 'mild';
   if (level <= 6) return 'moderate';
   if (level <= 8) return 'severe';

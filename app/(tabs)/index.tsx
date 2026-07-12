@@ -44,7 +44,7 @@ export default function TodayScreen() {
       if (!coachingLoadedRef.current) {
         coachingLoadedRef.current = true;
         const c = await getCoachingNudge(
-          eps.filter(e => (e.memberId ?? 'self') === (await getActiveMemberId())),
+          eps.filter(e => (e.memberId ?? 'self') === activeId),
           s,
           s.language,
         );

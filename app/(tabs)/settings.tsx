@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, Share, StyleSheet, Switch, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,6 +51,7 @@ export default function SettingsScreen() {
   const s = useMemo(() => makeStyles(c), [c]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [seedBusy, setSeedBusy] = useState(false);
 
   useFocusEffect(useCallback(() => {
     getSettings().then(setSettings);
@@ -117,6 +118,22 @@ export default function SettingsScreen() {
   async function handleSignOut() {
     await signOut();
     router.replace('/auth');
+  }
+
+  async function runSeed(kind: 'full' | 'sparse' | 'clear') {
+    if (seedBusy) return;
+    setSeedBusy(true);
+    try {
+      const { generateSeedHistory, generateSparseHistory, clearAllData } = await import('../../src/dev/seedData');
+      if (kind === 'full')   await generateSeedHistory();
+      if (kind === 'sparse') await generateSparseHistory();
+      if (kind === 'clear')  await clearAllData();
+      Alert.alert('Dev', kind === 'clear' ? 'All data cleared.' : `Seed loaded (${kind}). Restart the tab.`);
+    } catch (e: any) {
+      Alert.alert('Dev error', String(e?.message ?? e));
+    } finally {
+      setSeedBusy(false);
+    }
   }
 
   if (!settings) return null;
@@ -304,6 +321,36 @@ export default function SettingsScreen() {
             <Text style={[s.actionTxt, { color: '#C4604A' }]}>{t('sign_out')}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Dev Tools — only in __DEV__ builds */}
+        {__DEV__ && (
+          <>
+            <Text style={s.sectionLabel}>Dev Tools</Text>
+            <View style={s.card}>
+              {[
+                { label: 'Load full history (4 cycles)',  kind: 'full'   as const },
+                { label: 'Load sparse history (5 logs)',  kind: 'sparse' as const },
+                { label: 'Clear all data',                kind: 'clear'  as const },
+              ].map(({ label, kind }, i, arr) => (
+                <TouchableOpacity
+                  key={kind}
+                  style={[s.actionRow, i < arr.length - 1 && s.rowBorder, seedBusy && { opacity: 0.5 }]}
+                  onPress={() => runSeed(kind)}
+                  disabled={seedBusy}
+                >
+                  <Ionicons
+                    name={kind === 'clear' ? 'trash-outline' : 'flask-outline'}
+                    size={18}
+                    color={kind === 'clear' ? '#C4604A' : c.DARK}
+                    style={s.actionIcon}
+                  />
+                  <Text style={[s.actionTxt, kind === 'clear' && { color: '#C4604A' }]}>{label}</Text>
+                  {seedBusy && <ActivityIndicator size="small" color={c.MUTED} style={{ marginLeft: 'auto' }} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         <View style={s.infoCard}>
           <Text style={s.infoEmoji}>🌸</Text>

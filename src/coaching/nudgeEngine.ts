@@ -24,7 +24,7 @@ export async function getCoachingNudge(
   const recentIds = await loadRecentIds();
   const vars = buildVars(episodes, settings, lang, today);
 
-  const candidate = pickCandidate(episodes, settings, vars, recentIds);
+  const candidate = pickCandidate(episodes, settings, vars, recentIds, today);
   if (!candidate) return null;
 
   await markShown(candidate.id, today, recentIds);
@@ -44,60 +44,119 @@ function pickCandidate(
   settings: UserSettings,
   vars: Record<string, string>,
   recentIds: Set<string>,
+  today: string,
 ): NudgeTemplate | null {
-  const cycleInfo = cyclePhaseForDate(vars._today, settings);
-  const daysUntil = settings.cycleLength - cycleInfo.dayOfCycle + 1;
-  const daysSince = Number(vars.daysSince);
-  const streak = Number(vars.streak);
+  const cycleInfo  = cyclePhaseForDate(today, settings);
+  const daysUntil  = settings.cycleLength - cycleInfo.dayOfCycle + 1;
+  const daysSince  = Number(vars.daysSince);
+  const streak     = Number(vars.streak);
+  const dayOfCycle = cycleInfo.dayOfCycle;
 
-  // 1. Phase-aware (highest priority)
+  // 1. Period phase
   if (cycleInfo.phase === 'period') {
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'phase_period'), recentIds);
     if (p) return p;
   }
-  if (daysUntil <= 3 && daysUntil > 0 && cycleInfo.phase !== 'period') {
+
+  // 2. Pre-period window (≤6 days out) — actionable prep, higher priority than generic luteal
+  if (daysUntil <= 6 && daysUntil > 0 && cycleInfo.phase !== 'period') {
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'phase_pre'), recentIds);
     if (p) return p;
   }
+
+  // 3. Ovulation
   if (cycleInfo.phase === 'ovulation') {
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'phase_ovulation'), recentIds);
     if (p) return p;
   }
+
+  // 4. Luteal (general phase)
   if (cycleInfo.phase === 'luteal') {
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'phase_luteal'), recentIds);
     if (p) return p;
   }
 
-  // 2. Pattern insight (need 10+ episodes)
+  // 5. Pattern insights (need 10+ episodes for meaningful patterns)
   if (episodes.length >= 10) {
+    // Specific high-value patterns first
+    if (detectPrePeriodHeadache(episodes, settings) && !recentIds.has('pattern_headache_pre')) {
+      const t = NUDGE_TEMPLATES.find(t => t.id === 'pattern_headache_pre');
+      if (t) return t;
+    }
+    if (detectHeatPattern(episodes) && !recentIds.has('pattern_heat_works')) {
+      const t = NUDGE_TEMPLATES.find(t => t.id === 'pattern_heat_works');
+      if (t) return t;
+    }
+    if (detectMoodDipAhead(episodes, settings, today, dayOfCycle) && !recentIds.has('pattern_mood_dip')) {
+      const t = NUDGE_TEMPLATES.find(t => t.id === 'pattern_mood_dip');
+      if (t) return t;
+    }
+    // General patterns
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'pattern'), recentIds);
     if (p) return p;
   }
 
-  // 3. Streak recognition (3+ days)
+  // 6. Streak recognition (3+ consecutive days)
   if (streak >= 3) {
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'streak'), recentIds);
     if (p) return p;
   }
 
-  // 4. Re-engagement (3+ days since last log)
+  // 7. Re-engagement (3+ days without logging)
   if (daysSince >= 3) {
     const p = pick(NUDGE_TEMPLATES.filter(t => t.category === 'reengagement'), recentIds);
     if (p) return p;
   }
 
-  // 5. Fallback education
+  // 8. Fallback education
   const edu = pick(NUDGE_TEMPLATES.filter(t => t.category === 'education'), recentIds);
   if (edu) return edu;
 
-  // All categories exhausted — reset history and pick first education
+  // All exhausted — reset history and start over
   AsyncStorage.setItem(HISTORY_KEY, '[]');
   return NUDGE_TEMPLATES.find(t => t.category === 'education') ?? NUDGE_TEMPLATES[0];
 }
 
 function pick(templates: NudgeTemplate[], recentIds: Set<string>): NudgeTemplate | null {
-  const available = templates.filter(t => !recentIds.has(t.id));
-  return available[0] ?? null;
+  return templates.find(t => !recentIds.has(t.id)) ?? null;
+}
+
+// ── Pattern detectors ─────────────────────────────────────────────────────────
+
+/** True when headaches cluster in the last 3 days of the cycle across 3+ occurrences. */
+function detectPrePeriodHeadache(episodes: Episode[], settings: UserSettings): boolean {
+  const headacheEps = episodes.filter(e => e.symptoms.includes('headache' as any));
+  if (headacheEps.length < 3) return false;
+  const prePeriod = headacheEps.filter(e => {
+    const d = cyclePhaseForDate(e.date, settings).dayOfCycle;
+    return d >= settings.cycleLength - 3;
+  });
+  return prePeriod.length >= 3;
+}
+
+/** True when heat has been used as a relief method 2+ times. */
+function detectHeatPattern(episodes: Episode[]): boolean {
+  return episodes.filter(e => e.reliefMethods.includes('heat' as any)).length >= 2;
+}
+
+/**
+ * True when today is cycle day 24–26 AND mood_swings appear on days 24–27
+ * in past cycle data (at least 2 occurrences).
+ */
+function detectMoodDipAhead(
+  episodes: Episode[],
+  settings: UserSettings,
+  today: string,
+  dayOfCycle: number,
+): boolean {
+  if (dayOfCycle < 23 || dayOfCycle > 26) return false;
+  const moodEps = episodes.filter(e => e.symptoms.includes('mood_swings' as any));
+  if (moodEps.length < 2) return false;
+  const onLutealDays = moodEps.filter(e => {
+    const d = cyclePhaseForDate(e.date, settings).dayOfCycle;
+    return d >= 24 && d <= 27;
+  });
+  return onLutealDays.length >= 2;
 }
 
 // ── Variable builder ──────────────────────────────────────────────────────────
@@ -112,24 +171,23 @@ function buildVars(
   const dayOfCycle = String(cycleInfo.dayOfCycle);
   const daysUntil  = String(Math.max(0, settings.cycleLength - cycleInfo.dayOfCycle + 1));
 
-  const nextDate = new Date(cycleInfo.nextPeriodDate + 'T12:00:00');
+  const nextDate      = new Date(cycleInfo.nextPeriodDate + 'T12:00:00');
   const nextPeriodDay = DAY_NAMES[lang][nextDate.getDay()];
 
-  const dates = [...new Set(episodes.map(e => e.date))].sort();
-  const streak = String(calcCurrentStreak(dates, today));
-
-  const lastLog    = dates[dates.length - 1];
-  const daysSince  = lastLog
-    ? String(Math.round((new Date(today + 'T12:00:00').getTime() - new Date(lastLog + 'T12:00:00').getTime()) / 86400000))
+  const dates     = [...new Set(episodes.map(e => e.date))].sort();
+  const streak    = String(calcCurrentStreak(dates, today));
+  const lastLog   = dates[dates.length - 1];
+  const daysSince = lastLog
+    ? String(Math.round(
+        (new Date(today + 'T12:00:00').getTime() - new Date(lastLog + 'T12:00:00').getTime()) / 86400000,
+      ))
     : '7';
 
-  // Top symptom name in lang
   const symCounts: Record<string, number> = {};
   for (const ep of episodes) for (const s of ep.symptoms) symCounts[s] = (symCounts[s] ?? 0) + 1;
-  const topSym = Object.entries(symCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  const topSym  = Object.entries(symCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
   const symptom = SYMPTOM_NAMES[lang][topSym] ?? topSym;
 
-  // Peak pain day of cycle
   const painByDay: Record<number, number[]> = {};
   for (const ep of episodes) {
     const d = cyclePhaseForDate(ep.date, settings).dayOfCycle;
@@ -148,21 +206,21 @@ function buildVars(
 
 async function loadRecentIds(): Promise<Set<string>> {
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY);
+    const raw     = await AsyncStorage.getItem(HISTORY_KEY);
     const history: { id: string; date: string }[] = raw ? JSON.parse(raw) : [];
-    const cutoff = new Date(Date.now() - HISTORY_DAYS * 86400000).toISOString().split('T')[0];
+    const cutoff  = new Date(Date.now() - HISTORY_DAYS * 86400000).toISOString().split('T')[0];
     return new Set(history.filter(h => h.date >= cutoff).map(h => h.id));
   } catch {
     return new Set();
   }
 }
 
-async function markShown(id: string, today: string, existing: Set<string>): Promise<void> {
+async function markShown(id: string, today: string, _existing: Set<string>): Promise<void> {
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_KEY);
+    const raw     = await AsyncStorage.getItem(HISTORY_KEY);
     const history: { id: string; date: string }[] = raw ? JSON.parse(raw) : [];
-    const cutoff = new Date(Date.now() - HISTORY_DAYS * 86400000).toISOString().split('T')[0];
-    const pruned = history.filter(h => h.date >= cutoff && h.id !== id);
+    const cutoff  = new Date(Date.now() - HISTORY_DAYS * 86400000).toISOString().split('T')[0];
+    const pruned  = history.filter(h => h.date >= cutoff && h.id !== id);
     pruned.push({ id, date: today });
     await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(pruned));
   } catch {
@@ -174,16 +232,17 @@ async function markShown(id: string, today: string, existing: Set<string>): Prom
 
 function calcCurrentStreak(sortedDates: string[], today: string): number {
   if (!sortedDates.length) return 0;
-  const last = sortedDates[sortedDates.length - 1];
+  const last         = sortedDates[sortedDates.length - 1];
   const daysSinceLast = Math.round(
     (new Date(today + 'T12:00:00').getTime() - new Date(last + 'T12:00:00').getTime()) / 86400000,
   );
   if (daysSinceLast > 1) return 0;
   let streak = 1;
   for (let i = sortedDates.length - 2; i >= 0; i--) {
-    const a = new Date(sortedDates[i + 1] + 'T12:00:00');
-    const b = new Date(sortedDates[i]     + 'T12:00:00');
-    if (Math.round((a.getTime() - b.getTime()) / 86400000) === 1) streak++;
+    const a   = new Date(sortedDates[i + 1] + 'T12:00:00');
+    const b   = new Date(sortedDates[i]     + 'T12:00:00');
+    const gap = Math.round((a.getTime() - b.getTime()) / 86400000);
+    if (gap === 1) streak++;
     else break;
   }
   return streak;
@@ -196,7 +255,16 @@ const DAY_NAMES: Record<Lang, string[]> = {
 };
 
 const SYMPTOM_NAMES: Record<Lang, Record<string, string>> = {
-  uz: { bloating: 'shishish', headache: "bosh og'rig'i", nausea: "ko'ngil aynishi", fatigue: 'charchoq', mood_swings: "kayfiyat o'zgarishi", breast_tenderness: "ko'krak og'rig'i" },
-  ru: { bloating: 'вздутие', headache: 'головная боль', nausea: 'тошнота', fatigue: 'усталость', mood_swings: 'перепады настроения', breast_tenderness: 'болезненность груди' },
-  en: { bloating: 'bloating', headache: 'headache', nausea: 'nausea', fatigue: 'fatigue', mood_swings: 'mood swings', breast_tenderness: 'breast tenderness' },
+  uz: {
+    bloating: 'shishish', headache: "bosh og'rig'i", nausea: "ko'ngil aynishi",
+    fatigue: 'charchoq', mood_swings: "kayfiyat o'zgarishi", breast_tenderness: "ko'krak og'rig'i",
+  },
+  ru: {
+    bloating: 'вздутие', headache: 'головная боль', nausea: 'тошнота',
+    fatigue: 'усталость', mood_swings: 'перепады настроения', breast_tenderness: 'болезненность груди',
+  },
+  en: {
+    bloating: 'bloating', headache: 'headache', nausea: 'nausea',
+    fatigue: 'fatigue', mood_swings: 'mood swings', breast_tenderness: 'breast tenderness',
+  },
 };
