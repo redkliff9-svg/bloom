@@ -11,7 +11,7 @@ import { SERIF } from '../src/constants';
 import { useColors } from '../src/theme';
 import { useI18n } from '../src/i18n';
 import { syncFromRemote, uploadLocalData } from '../src/storage/sync';
-import { setCurrentUser } from '../src/storage';
+import { getSettings, setCurrentUser } from '../src/storage';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -70,7 +70,7 @@ export default function AuthScreen() {
       if (data.user) {
         setCurrentUser(data.user.id);
         uploadLocalData(data.user.id);
-        router.replace('/family-setup');
+        router.replace('/onboarding');
       } else {
         setCheckInbox(true);
       }
@@ -87,7 +87,8 @@ export default function AuthScreen() {
       if (data.user) {
         setCurrentUser(data.user.id);
         syncFromRemote(data.user.id);
-        router.replace('/(tabs)');
+        const s = await getSettings();
+        router.replace(s.onboardingCompleted ? '/(tabs)' : '/onboarding');
         return;
       }
     }

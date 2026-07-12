@@ -247,6 +247,11 @@ const strings = {
   notifs_sub:       { uz: 'Kuzatishni eslatib turamiz', ru: 'Напомним о записи', en: 'We\'ll remind you to track' },
   challenge_intro:  { uz: '3 kunlik vazifa boshlandi!', ru: 'Начался 3-дневный челлендж!', en: '3-Day Challenge starts now!' },
   challenge_intro_sub: { uz: '3 kun ketma-ket kuzatib, birinchi tushunchangizni oling', ru: 'Отслеживайте 3 дня подряд и получите первый инсайт', en: 'Track 3 days in a row to earn your first insight' },
+  period_start_q:   { uz: 'Oxirgi hayz qachon boshlandi?', ru: 'Когда начались последние месячные?', en: 'When did your last period start?' },
+  period_start_sub: { uz: 'Bu bashoratlarni aniqlashtiradi', ru: 'Это уточнит прогнозы', en: 'This helps us predict your next cycle' },
+  today:            { uz: 'Bugun',               ru: 'Сегодня',          en: 'Today' },
+  not_sure:         { uz: 'Aniq emas',           ru: 'Не помню',         en: 'Not sure' },
+  days_ago:         { uz: 'kun oldin',           ru: 'дн. назад',        en: 'd ago' },
 
   // ── Coaching ──────────────────────────────────────────────────────────────────
   coaching_dismiss:    { uz: 'Tushunarli',          ru: 'Понятно',             en: 'Got it' },

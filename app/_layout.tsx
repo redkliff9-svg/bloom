@@ -42,6 +42,8 @@ function AppShell() {
   const [ready, setReady]      = useState(false);
   const didNavigate            = useRef(false);
 
+  const [onboardingDone, setOnboardingDone] = useState(false);
+
   // Bootstrap: load language, seed demo data in dev, then sync from remote if logged in
   useEffect(() => {
     (async () => {
@@ -49,6 +51,7 @@ function AppShell() {
       const s = await getSettings();
       setLangState(s.language);
       setThemeState(s.theme ?? 'system');
+      setOnboardingDone(s.onboardingCompleted ?? false);
       setReady(true);
     })();
   }, []);
@@ -70,13 +73,15 @@ function AppShell() {
     return () => sub.remove();
   }, [session]);
 
-  // Navigate based on auth state — only once on initial load.
+  // Navigate based on auth + onboarding state — only once on initial load.
   // Sign-in navigation is handled in auth.tsx; sign-out in settings.tsx.
   useEffect(() => {
     if (!ready || authLoading || didNavigate.current) return;
     didNavigate.current = true;
     if (!session) {
       router.replace('/auth');
+    } else if (!onboardingDone) {
+      router.replace('/onboarding');
     } else {
       router.replace('/(tabs)');
     }

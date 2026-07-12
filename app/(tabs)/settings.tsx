@@ -11,6 +11,7 @@ import { useColors } from '../../src/theme';
 import { useI18n } from '../../src/i18n';
 import { getEpisodes, getFamilyMembers, getSettings, patchSettings } from '../../src/storage';
 import { FamilyMember, Lang, Theme, UserSettings } from '../../src/types';
+import { generateSeedHistory, generateSparseHistory, clearAllData as devClearAll } from '../../src/dev/seedData';
 
 function parseTime(t: string): { h: number; m: number } {
   const [h, m] = (t ?? '21:00').split(':').map(Number);
@@ -124,11 +125,10 @@ export default function SettingsScreen() {
     if (seedBusy) return;
     setSeedBusy(true);
     try {
-      const { generateSeedHistory, generateSparseHistory, clearAllData } = await import('../../src/dev/seedData');
       if (kind === 'full')   await generateSeedHistory();
       if (kind === 'sparse') await generateSparseHistory();
-      if (kind === 'clear')  await clearAllData();
-      Alert.alert('Dev', kind === 'clear' ? 'All data cleared.' : `Seed loaded (${kind}). Restart the tab.`);
+      if (kind === 'clear')  await devClearAll();
+      Alert.alert('Dev', kind === 'clear' ? 'All data cleared.' : `Seed loaded (${kind}). Tap the Today tab to reload.`);
     } catch (e: any) {
       Alert.alert('Dev error', String(e?.message ?? e));
     } finally {
