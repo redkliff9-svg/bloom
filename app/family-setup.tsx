@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useAuth } from '../src/contexts/AuthContext';
 import { SERIF } from '../src/constants';
 import { useColors } from '../src/theme';
 import { useI18n } from '../src/i18n';
@@ -20,11 +21,16 @@ const RELATION_EMOJIS: Record<string, string> = {
 interface MemberDraft { name: string; relation: string; }
 
 export default function FamilySetupScreen() {
+  const { session, loading: authLoading } = useAuth();
   const { t } = useI18n();
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
   const [step, setStep]       = useState<'question' | 'members'>('question');
   const [members, setMembers] = useState<MemberDraft[]>([{ name: '', relation: 'relation_daughter' }]);
+
+  useEffect(() => {
+    if (!authLoading && !session) router.replace('/auth');
+  }, [session, authLoading]);
 
   function addMember() {
     setMembers(m => [...m, { name: '', relation: 'relation_other' }]);

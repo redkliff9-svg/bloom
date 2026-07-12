@@ -26,6 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setCurrentUser(session?.user.id ?? null);
       setLoading(false);
+      // Validate the cached token server-side in the background.
+      // Sign out only on explicit 401 — not on network failures (offline mode).
+      if (session) {
+        supabase.auth.getUser()
+          .then(({ error }) => { if (error?.status === 401) supabase.auth.signOut(); })
+          .catch(() => { /* network unavailable — keep cached session */ });
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '../src/contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { SERIF, painColor, painLabelKey } from '../src/constants';
@@ -20,10 +21,15 @@ const RELIEF: ReliefMethod[]        = ['heat', 'medication', 'rest', 'exercise',
 const FLOW_OPTIONS: FlowIntensity[] = ['spotting', 'light', 'medium', 'heavy'];
 
 export default function LogScreen() {
+  const { session, loading: authLoading } = useAuth();
   const { t } = useI18n();
   const c = useColors();
   const s = useMemo(() => makeStyles(c), [c]);
   const params    = useLocalSearchParams<{ type?: string; editId?: string; prefill?: string }>();
+
+  useEffect(() => {
+    if (!authLoading && !session) router.replace('/auth');
+  }, [session, authLoading]);
   const editId    = params.editId ?? null;
   const prefilled = params.prefill ? (JSON.parse(params.prefill) as Episode) : null;
   const entryType = prefilled?.type ?? ((params.type === 'daily' ? 'daily' : 'episode') as 'episode' | 'daily');

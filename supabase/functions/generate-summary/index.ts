@@ -77,21 +77,20 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
     if (authErr || !user) return json({ error: 'unauthorized' }, 401);
 
-    // Rate limit: 1 on-demand regenerate per day (unless force=true)
-    if (!force) {
-      const dayStart = new Date();
-      dayStart.setUTCHours(0, 0, 0, 0);
-      const { data: generated } = await admin
-        .from('ai_summaries')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('period', period)
-        .gte('created_at', dayStart.toISOString())
-        .maybeSingle();
+    // Rate limit: 1 per day normally; force=true allows up to 3 per day per period
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const { data: todayRows } = await admin
+      .from('ai_summaries')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('period', period)
+      .gte('created_at', dayStart.toISOString());
+    const todayCount = todayRows?.length ?? 0;
 
-      const { start } = periodBounds(period);
-      if (generated) {
-        // Already generated today — return existing for this period
+    const { start } = periodBounds(period);
+    if (!force) {
+      if (todayCount >= 1) {
         const { data: existing } = await admin
           .from('ai_summaries')
           .select('*')
@@ -101,6 +100,8 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (existing) return json({ summary: existing, cached: true });
       }
+    } else if (todayCount >= 3) {
+      return json({ error: 'rate_limited' }, 429);
     }
 
     const summary = await generateForUser(user.id, period, lang, admin, anthropicKey, force);
