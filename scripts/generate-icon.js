@@ -1,9 +1,13 @@
 /**
  * Generates assets/icon.png (1024×1024) and assets/splash-icon.png (512×512).
  * Run once: node scripts/generate-icon.js
- * Requires: npm install --save-dev canvas
+ * Requires: npm install --save-dev canvas   (pngjs is already a dep)
+ *
+ * icon.png is written as RGB (no alpha) — Apple rejects RGBA App Store icons.
+ * splash-icon.png is written as RGBA (transparency is fine and expected there).
  */
 const { createCanvas } = require('canvas');
+const { PNG } = require('pngjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -47,8 +51,27 @@ function drawIcon(size, outputPath) {
   ctx.fill();
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  const buffer = canvas.toBuffer('image/png');
-  fs.writeFileSync(outputPath, buffer);
+  const rawBuffer = canvas.toBuffer('image/png');
+
+  // App Store icon must be RGB (no alpha). Composite against the app's
+  // background colour and re-encode as colorType 2 (RGB).
+  if (outputPath.endsWith('icon.png')) {
+    const src = PNG.sync.read(rawBuffer);
+    const bgR = 0xEA, bgG = 0xE4, bgB = 0xDB; // #EAE4DB
+    const d = src.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3] / 255;
+      if (a < 1) {
+        d[i]     = Math.round(d[i]     * a + bgR * (1 - a));
+        d[i + 1] = Math.round(d[i + 1] * a + bgG * (1 - a));
+        d[i + 2] = Math.round(d[i + 2] * a + bgB * (1 - a));
+        d[i + 3] = 255;
+      }
+    }
+    fs.writeFileSync(outputPath, PNG.sync.write(src, { colorType: 2 }));
+  } else {
+    fs.writeFileSync(outputPath, rawBuffer);
+  }
   console.log(`✓ Written ${outputPath} (${size}×${size})`);
 }
 

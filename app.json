@@ -4,9 +4,18 @@
     "slug": "blooms",
     "scheme": "blooms",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/84ecac8e-85d5-40f7-82fc-ccaa757ebe65"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,6 +25,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.blooms.period",
       "buildNumber": "1",
+      "minimumOsVersion": "17.0",
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Blooms sends daily reminders to help you track your menstrual cycle.",
         "ITSAppUsesNonExemptEncryption": false,
@@ -43,6 +53,8 @@
       },
       "package": "com.blooms.period",
       "versionCode": 1,
+      "minSdkVersion": 24,
+      "targetSdkVersion": 35,
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
