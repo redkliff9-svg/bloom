@@ -3,12 +3,14 @@
  * Run: node scripts/generate-icon.js
  * Uses pngjs (already installed as a transitive dep).
  *
+ * Design: rose-pink background + dark-rose vertical leaf + lighter crescent inside
+ *
  * Outputs:
  *   icon.png                    1024×1024  RGB (no alpha) — App Store requirement
  *   splash-icon.png              512× 512  RGBA bloom on transparent bg
  *   android-icon-foreground.png 1024×1024  RGBA bloom on transparent bg
  *   android-icon-monochrome.png 1024×1024  RGBA white shapes on transparent (themed icons)
- *   android-icon-background.png 1024×1024  RGB solid #EAE4DB
+ *   android-icon-background.png 1024×1024  RGB solid rose
  */
 
 'use strict';
@@ -17,81 +19,57 @@ const fs      = require('fs');
 const path    = require('path');
 
 // ── Brand palette ─────────────────────────────────────────────────────────────
-const CREAM  = [0xEA, 0xE4, 0xDB]; // #EAE4DB  warm off-white
-const PURPLE = [0x8B, 0x6B, 0xA0]; // #8B6BA0  brand purple
-const LILAC  = [0xD4, 0xBF, 0xEA]; // #D4BFEA  soft lilac backing circle
+const ROSE_BG    = [0xF5, 0xC2, 0xC2]; // #F5C2C2  soft rose background
+const LEAF_DARK  = [0xBE, 0x37, 0x41]; // #BE3741  deep cranberry leaf
+const LEAF_LIGHT = [0xD7, 0x5A, 0x64]; // #D75A64  lighter rose crescent
 
 // ── Geometry ──────────────────────────────────────────────────────────────────
-function inCircle(x, y, cx, cy, r) {
-  const dx = x - cx, dy = y - cy;
-  return dx * dx + dy * dy <= r * r;
+
+// Vertical pointed-oval leaf = intersection of two horizontally-offset circles
+// R=0.350, d=0.220 → width ≈ 26% of size, height ≈ 54% of size
+function inLeaf(x, y, cx, cy, size) {
+  const R = size * 0.350, d = size * 0.220;
+  const dy = y - cy;
+  const d1 = x - (cx - d), d2 = x - (cx + d);
+  return d1 * d1 + dy * dy <= R * R && d2 * d2 + dy * dy <= R * R;
 }
 
-function inRotatedEllipse(x, y, cx, cy, rx, ry, angle) {
-  const ca = Math.cos(angle), sa = Math.sin(angle);
-  const dx = x - cx, dy = y - cy;
-  const lx = dx * ca + dy * sa;
-  const ly = -dx * sa + dy * ca;
-  return (lx / rx) * (lx / rx) + (ly / ry) * (ly / ry) <= 1;
+// Crescent (")") = inside outer circle AND outside inner circle shifted left
+function inCrescent(x, y, cx, cy, size) {
+  const ox     = cx + size * 0.018;  // crescent center, slightly right
+  const oy     = cy - size * 0.020;  // slightly above leaf center
+  const outerR = size * 0.088;
+  const innerR = size * 0.074;
+  const shift  = size * 0.054;       // inner circle shifted left → ")" shape
+
+  const dx1 = x - ox,           dy1 = y - oy;
+  const dx2 = x - (ox - shift), dy2 = y - oy;
+  return dx1 * dx1 + dy1 * dy1 <= outerR * outerR &&
+         dx2 * dx2 + dy2 * dy2 >  innerR * innerR;
 }
 
-/**
- * Sample the bloom design at sub-pixel (fx, fy) in a canvas of `size`.
- *
- * mode:
- *   'icon'       full colour, cream background       → RGB output
- *   'splash'     full colour, transparent background → RGBA output
- *   'foreground' full colour, transparent background → RGBA output
- *   'monochrome' white shapes only, transparent bg   → RGBA output
- *
- * Returns [r, g, b, a].
- */
+// ── Sample a sub-pixel point ───────────────────────────────────────────────────
 function sample(fx, fy, size, mode) {
   const cx = size / 2, cy = size / 2;
 
-  const innerR  = size * 0.060;  // centre dot radius
-  const outerR  = size * 0.100;  // centre gap (cream ring behind dot)
-  const petalRx = size * 0.140;  // petal semi-major axis
-  const petalRy = size * 0.091;  // petal semi-minor axis (= 0.65 × petalRx)
-  const orbitR  = size * 0.200;  // orbit distance of petal centres
-  const circleR = size * 0.420;  // lilac backing circle radius
+  if (mode === 'solid') return [...ROSE_BG, 255];
 
+  if (mode === 'monochrome') {
+    return inLeaf(fx, fy, cx, cy, size) ? [255, 255, 255, 255] : [0, 0, 0, 0];
+  }
+
+  // 'icon', 'splash', 'foreground'
   const transparent = mode !== 'icon';
-  const shapeFill   = mode === 'monochrome' ? [255, 255, 255] : PURPLE;
-
-  // --- front-to-back layer order ---
-
-  // 1. Centre dot
-  if (inCircle(fx, fy, cx, cy, innerR))
-    return [...shapeFill, 255];
-
-  // 2. Centre gap (cream on opaque icons, transparent otherwise)
-  if (inCircle(fx, fy, cx, cy, outerR))
-    return transparent ? [0, 0, 0, 0] : [...CREAM, 255];
-
-  // 3. Six petals (rotated ellipses)
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
-    const px    = cx + Math.cos(angle) * orbitR;
-    const py    = cy + Math.sin(angle) * orbitR;
-    if (inRotatedEllipse(fx, fy, px, py, petalRx, petalRy, angle))
-      return [...shapeFill, 255];
-  }
-
-  // 4. Lilac backing circle
-  if (inCircle(fx, fy, cx, cy, circleR)) {
-    if (mode === 'monochrome') return [0, 0, 0, 0]; // transparent for clean tint
-    return [...LILAC, 255];
-  }
-
-  // 5. Background
-  return transparent ? [0, 0, 0, 0] : [...CREAM, 255];
+  const inL = inLeaf(fx, fy, cx, cy, size);
+  if (inL && inCrescent(fx, fy, cx, cy, size)) return [...LEAF_LIGHT, 255];
+  if (inL) return [...LEAF_DARK, 255];
+  return transparent ? [0, 0, 0, 0] : [...ROSE_BG, 255];
 }
 
-// ── Anti-aliased renderer (2× super-sampling → 4 samples/pixel) ───────────────
+// ── Anti-aliased renderer (2× super-sampling) ─────────────────────────────────
 function render(size, mode) {
   const SSAA      = 2;
-  const colorType = mode === 'icon' ? 2 : 6; // 2=RGB, 6=RGBA
+  const colorType = (mode === 'icon' || mode === 'solid') ? 2 : 6;
   const png       = new PNG({ width: size, height: size, colorType });
   const buf       = Buffer.alloc(size * size * 4);
 
@@ -108,8 +86,7 @@ function render(size, mode) {
           rS += r; gS += g; bS += b; aS += a;
         }
       }
-      const n = SSAA * SSAA;
-      const i = (py * size + px) * 4;
+      const n = SSAA * SSAA, i = (py * size + px) * 4;
       buf[i]     = (rS / n) | 0;
       buf[i + 1] = (gS / n) | 0;
       buf[i + 2] = (bS / n) | 0;
@@ -119,19 +96,6 @@ function render(size, mode) {
 
   png.data = buf;
   return PNG.sync.write(png, { colorType });
-}
-
-function renderSolid(size, r, g, b) {
-  const png = new PNG({ width: size, height: size, colorType: 2 });
-  const buf = Buffer.alloc(size * size * 4);
-  for (let i = 0; i < size * size; i++) {
-    buf[i * 4]     = r;
-    buf[i * 4 + 1] = g;
-    buf[i * 4 + 2] = b;
-    buf[i * 4 + 3] = 255;
-  }
-  png.data = buf;
-  return PNG.sync.write(png, { colorType: 2 });
 }
 
 // ── Run ───────────────────────────────────────────────────────────────────────
@@ -149,7 +113,7 @@ for (const [file, size, mode] of targets) {
   const out = path.join(ASSETS, file);
   process.stdout.write(`  ${file.padEnd(30)} ${size}×${size}  ${mode.padEnd(12)} … `);
   const t0  = Date.now();
-  const buf = mode === 'solid' ? renderSolid(size, ...CREAM) : render(size, mode);
+  const buf = render(size, mode);
   fs.writeFileSync(out, buf);
   console.log(`${buf.length.toLocaleString()} bytes  (${Date.now() - t0}ms)`);
 }

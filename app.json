@@ -19,7 +19,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#EAE4DB"
+      "backgroundColor": "#F5C2C2"
     },
     "ios": {
       "supportsTablet": false,
@@ -49,7 +49,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#EAE4DB"
+        "backgroundColor": "#F5C2C2"
       },
       "package": "com.blooms.period",
       "versionCode": 1,
@@ -72,7 +72,7 @@
       [
         "expo-notifications",
         {
-          "color": "#8B6BA0"
+          "color": "#BE3741"
         }
       ],
       "expo-secure-store"
