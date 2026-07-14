@@ -24,7 +24,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.blooms.period",
-      "buildNumber": "1",
       "minimumOsVersion": "17.0",
       "infoPlist": {
         "NSUserNotificationsUsageDescription": "Blooms sends daily reminders to help you track your menstrual cycle.",
